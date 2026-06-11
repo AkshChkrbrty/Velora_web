@@ -1,93 +1,43 @@
 # ✦ Velora — AI Study Companion
 
-Full-stack AI tutoring app powered by **OpenRouter** (use any model — Gemini, GPT, Claude, Llama…).
+Full-stack AI tutoring app powered by **OpenRouter**. Runs entirely on ONE Render
+service — the backend serves the web page AND the API. No Vercel needed.
 
-## Project Structure
+## Files (keep them all in ONE folder / repo root)
 ```
-velora/
-├── backend/
-│   ├── main.py           ← FastAPI server (OpenRouter AI)
-│   └── requirements.txt
-└── frontend/
-    └── index.html        ← Complete frontend (open in browser)
-```
-
-## ⚡ Quick Start (run locally)
-
-### Step 1 — Install Python dependencies
-```bash
-cd backend
-pip install -r requirements.txt
+main.py            FastAPI server — serves the website + AI API
+index.html         the web page (served by main.py at "/")
+requirements.txt
+.env               your API key (NOT pushed to GitHub)
+.env.example
+.gitignore
 ```
 
-### Step 2 — Set your OpenRouter API key
-Get a key at: https://openrouter.ai/keys
+## Run locally
+1. `pip install -r requirements.txt`
+2. Put your key in `.env`:  `OPENROUTER_API_KEY=sk-or-v1-...`  (https://openrouter.ai/keys)
+3. `uvicorn main:app --reload --port 8000`
+4. Open http://localhost:8000  ← the whole app loads here (login: demo@velora.ai / demo123)
 
-macOS / Linux:
-```bash
-export OPENROUTER_API_KEY="sk-or-v1-your-key-here"
-```
-Windows (PowerShell):
-```powershell
-setx OPENROUTER_API_KEY "sk-or-v1-your-key-here"
-```
-(Optional) pick a different model — defaults to `google/gemini-2.0-flash-001`:
-```bash
-export OPENROUTER_MODEL="openai/gpt-4o-mini"
-```
-Browse models at https://openrouter.ai/models
-
-### Step 3 — Start the backend
-```bash
-uvicorn main:app --reload --port 8000
-```
-You'll see: `Uvicorn running on http://127.0.0.1:8000`
-
-### Step 4 — Open the frontend
-Just open `frontend/index.html` in your browser.
-(Or use VS Code Live Server)
-
-Demo login: `demo@velora.ai` / `demo123`
-
----
-
-## 🌐 Deploy to Production
-
-### Backend → Render.com (free)
-1. Push `backend/` folder to GitHub
-2. Go to render.com → New Web Service
-3. Connect your repo, set:
+## Deploy — Render only (one service, one URL)
+1. Push all files to GitHub (in the repo root, all together).
+2. Render → New → Web Service → connect repo.
+   - Language: **Python 3**
    - Build command: `pip install -r requirements.txt`
    - Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-   - **Environment variable:** `OPENROUTER_API_KEY` = your key
-     (and optionally `OPENROUTER_MODEL`)
-4. Copy your Render URL (e.g. `https://velora-api.onrender.com`)
+   - Root Directory: leave **blank** (all files are in the root)
+   - Environment variable: `OPENROUTER_API_KEY` = your key
+     (Optional `OPENROUTER_MODEL`; defaults to `openrouter/auto`)
+3. Wait for **Live**, then open your `https://YOUR-URL.onrender.com` — the website loads directly.
+4. Sanity check: `https://YOUR-URL.onrender.com/api/health` should show `"model":"openrouter/auto"`.
 
-### Frontend → Vercel (free)
-1. In `frontend/index.html`, change line:
-   ```js
-   const API = "http://localhost:8000";
-   ```
-   to:
-   ```js
-   const API = "https://velora-api.onrender.com"; // your Render URL
-   ```
-2. Push `frontend/` to GitHub
-3. Import to vercel.com → deploy
+That's it — the site and all AI features run from that single URL.
 
----
+## Model
+Defaults to `openrouter/auto`, which always routes to a valid available model
+(avoids "no endpoints found for <model>" errors). Set `OPENROUTER_MODEL=openrouter/free`
+for free-only models, or pin any slug from https://openrouter.ai/models.
 
-## 🤖 AI Features
-| Feature | Endpoint | What it does |
-|---------|----------|-------------|
-| Study Planner | POST /api/study-plan | Day-by-day exam schedule |
-| Summarizer | POST /api/summarize | Bullet-point summary of notes |
-| Quiz Generator | POST /api/generate-quiz | MCQs with explanations |
-| Doubt Chatbot | POST /api/chat | Multi-turn tutoring conversation |
-| Flashcards | POST /api/flashcards | Flip-card Q&A pairs |
-| Difficulty Hint | POST /api/difficulty-hint | Adaptive feedback on score |
-
-## API Key
-The Gemini key is gone. The backend now reads your **OpenRouter** key from the
-`OPENROUTER_API_KEY` environment variable (never hard-coded in source).
-Get one at: https://openrouter.ai/keys
+## Endpoints
+GET / (the website) · GET /api/health · POST /api/study-plan · /api/summarize ·
+/api/generate-quiz · /api/chat · /api/flashcards · /api/difficulty-hint
