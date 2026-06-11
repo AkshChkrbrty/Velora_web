@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Velora — AI Study Companion</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --lav:#E8E4FF;--lav-mid:#B8AEFF;--lav-dk:#6C5CE7;
+  --mint:#D4F5E9;--mint-mid:#7EDBB5;--mint-dk:#1A9E6B;
+  --peach:#FFE8DC;--peach-mid:#FFB899;--peach-dk:#E05A20;
+  --sky:#DCF0FF;--sky-mid:#90CAEA;--sky-dk:#2471A3;
+  --blush:#FFE4EF;--blush-mid:#F4A0C4;--blush-dk:#C0396A;
+  --yellow:#FFF8D6;--yellow-mid:#FFD860;--yellow-dk:#B8860B;
+  --bg:#F7F5FF;--card:#fff;--text:#2D2540;--muted:#7A6E8A;
+  --border:#E2DEFF;--radius:14px;--radius-sm:8px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+/* sidebar */
+.sidebar{width:220px;background:var(--card);border-right:1.5px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:4px;flex-shrink:0;position:fixed;top:0;left:0;height:100vh;z-index:10}
+.logo{padding:8px 20px 20px;font-size:21px;font-weight:800;color:var(--lav-dk);display:flex;align-items:center;gap:8px}
+.nav-item{padding:10px 20px;cursor:pointer;border-radius:var(--radius-sm);margin:0 8px;display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted);transition:all .15s;user-select:none}
+.nav-item:hover{background:var(--lav);color:var(--lav-dk)}
+.nav-item.active{background:var(--lav);color:var(--lav-dk);font-weight:700}
+/* main */
+.main{flex:1;margin-left:220px;padding:28px;overflow-y:auto}
+.page{display:none}
+.page.active{display:block}
+/* cards */
+.card{background:var(--card);border-radius:var(--radius);border:1.5px solid var(--border);padding:20px;margin-bottom:16px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{padding:16px;border-radius:var(--radius);border:1.5px solid var(--border)}
+.stat-label{font-size:12px;color:var(--muted);margin-bottom:5px}
+.stat-val{font-size:26px;font-weight:800}
+h1{font-size:23px;font-weight:800;margin-bottom:4px}
+h2{font-size:17px;font-weight:700;margin-bottom:12px}
+.subtitle{font-size:13px;color:var(--muted);margin-bottom:20px}
+/* inputs */
+input,textarea,select{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;background:#fff;color:var(--text);outline:none;transition:border .15s}
+input:focus,textarea:focus,select:focus{border-color:var(--lav-dk)}
+textarea{resize:vertical;min-height:90px}
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:5px;margin-top:12px}
+label:first-child{margin-top:0}
+/* buttons */
+.btn{padding:10px 20px;border-radius:var(--radius-sm);font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-lav{background:var(--lav-dk);color:#fff}.btn-lav:hover{background:#5849C2;transform:translateY(-1px)}
+.btn-lav:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-mint{background:var(--mint-dk);color:#fff}.btn-mint:hover{background:#14855A}
+.btn-sky{background:var(--sky-dk);color:#fff}.btn-sky:hover{background:#1A5E8F}
+.btn-outline{background:transparent;border:1.5px solid var(--lav-dk);color:var(--lav-dk)}.btn-outline:hover{background:var(--lav)}
+/* ai output box */
+.ai-box{background:var(--lav);border:1.5px solid var(--lav-mid);border-radius:var(--radius);padding:16px;margin-top:12px;font-size:14px;line-height:1.8;white-space:pre-wrap;max-height:420px;overflow-y:auto}
+/* loading dots */
+.dots{display:inline-flex;gap:5px;align-items:center}.dots span{width:7px;height:7px;border-radius:50%;background:var(--lav-dk);animation:blink 1.2s infinite}.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+/* chat */
+.chat-msgs{max-height:380px;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.msg{padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.65;max-width:88%}
+.msg-user{background:var(--lav-dk);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.msg-ai{background:var(--lav);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+.chat-row{display:flex;gap:8px}.chat-row input{flex:1}
+/* quiz */
+.quiz-q{background:var(--sky);border:1.5px solid var(--sky-mid);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.q-num{font-size:11px;color:var(--sky-dk);font-weight:700;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.q-text{font-size:14px;font-weight:700;margin-bottom:10px}
+.q-exp{font-size:12px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--sky-mid)}
+.option{padding:9px 13px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;margin-bottom:6px;border:1.5px solid transparent;background:#fff;transition:all .12s}
+.option:hover{background:var(--sky-mid);color:var(--sky-dk)}
+.option.correct{background:#d4f5e9;border-color:var(--mint-dk);color:var(--mint-dk);font-weight:700}
+.option.wrong{background:#ffe4ef;border-color:var(--blush-dk);color:var(--blush-dk)}
+.option.selected{background:var(--lav);border-color:var(--lav-dk)}
+/* progress bar */
+.prog-bar{height:9px;background:var(--border);border-radius:4px;overflow:hidden;margin:5px 0 14px}
+.prog-fill{height:100%;border-radius:4px;transition:width .6s}
+/* plan days */
+.plan-day{border-left:4px solid var(--lav-dk);padding:12px 16px;margin-bottom:12px;background:var(--lav);border-radius:0 var(--radius-sm) var(--radius-sm) 0}
+.plan-title{font-weight:700;font-size:13px;color:var(--lav-dk);margin-bottom:6px}
+.plan-topics{font-size:13px;line-height:1.8}
+.plan-tip{font-size:12px;color:var(--muted);margin-top:6px;font-style:italic}
+/* flashcards */
+.fc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.flashcard{perspective:600px;height:140px;cursor:pointer}
+.fc-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .4s}
+.flashcard.flipped .fc-inner{transform:rotateY(180deg)}
+.fc-front,.fc-back{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;padding:16px;font-size:14px;font-weight:600;text-align:center;border:2px solid}
+.fc-front{background:var(--peach);border-color:var(--peach-mid);color:var(--text)}
+.fc-back{background:var(--mint);border-color:var(--mint-mid);color:var(--text);transform:rotateY(180deg)}
+/* feature chips */
+.chip{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:var(--radius);border:1.5px solid var(--border);cursor:pointer;background:var(--card);transition:all .15s;margin-bottom:10px}
+.chip:hover{border-color:var(--lav-dk);background:var(--lav)}
+.chip-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.chip-title{font-size:14px;font-weight:700}
+.chip-desc{font-size:12px;color:var(--muted)}
+/* toast */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+.toast-success{background:var(--mint-dk);color:#fff}
+.toast-error{background:#E05A20;color:#fff}
+/* score card */
+.score-banner{padding:18px;border-radius:var(--radius);font-size:16px;font-weight:700;text-align:center;margin-top:14px}
+/* login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--lav) 0%,var(--mint) 50%,var(--sky) 100%)}
+.login-card{background:#fff;border-radius:20px;padding:36px 32px;width:380px;border:2px solid var(--lav-mid)}
+.login-logo{font-size:28px;font-weight:900;color:var(--lav-dk);text-align:center;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--muted);text-align:center;margin-bottom:24px}
+.tab-row{display:flex;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:3px;margin-bottom:18px}
+.tab-btn{flex:1;padding:8px;border-radius:6px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)}
+.tab-btn.active{background:var(--lav-dk);color:#fff}
+/* markdown rendering in summary */
+.md-render h2{font-size:15px;font-weight:700;margin:14px 0 7px;color:var(--lav-dk)}
+.md-render ul{padding-left:20px;margin:6px 0}
+.md-render li{margin-bottom:5px;line-height:1.65}
+.md-render strong{font-weight:700;color:var(--text)}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────────────── -->
+<div id="loginPage" class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">✦ Velora</div>
+    <div class="login-sub">Your AI-powered study companion</div>
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="authTab('login')">Sign In</button>
+      <button class="tab-btn" onclick="authTab('register')">Register</button>
+    </div>
+    <div id="loginForm">
+      <label>Email</label>
+      <input id="lEmail" type="email" value="demo@velora.ai" placeholder="student@email.com"/>
+      <label style="margin-top:10px">Password</label>
+      <input id="lPass" type="password" value="demo123" placeholder="••••••••"/>
+      <button class="btn btn-lav" style="width:100%;margin-top:18px;justify-content:center" onclick="doLogin()">Sign In →</button>
+    </div>
+    <div id="registerForm" style="display:none">
+      <label>Full Name</label>
+      <input id="rName" placeholder="Your name"/>
+      <label style="margin-top:10px">Email</label>
+      <input id="rEmail" type="email" placeholder="student@email.com"/>
+      <label style="margin-top:10px">Password</label>
+      <input id="rPass" type="password" placeholder="Choose a password"/>
+      <button class="btn btn-lav" style="width:100%;margin-top:18px;justify-content:center" onclick="doRegister()">Create Account →</button>
+    </div>
+    <p id="authErr" style="font-size:13px;color:var(--peach-dk);margin-top:10px;text-align:center"></p>
+  </div>
+</div>
+
+<!-- ── APP ────────────────────────────────────────────────────────────── -->
+<div id="appWrap" class="app" style="display:none">
+  <nav class="sidebar">
+    <div class="logo">✦ Velora</div>
+    <div class="nav-item active" onclick="nav('dashboard')">🏠 Dashboard</div>
+    <div class="nav-item" onclick="nav('planner')">📅 Study Planner</div>
+    <div class="nav-item" onclick="nav('summarizer')">📄 Summarizer</div>
+    <div class="nav-item" onclick="nav('quiz')">🧠 Quiz</div>
+    <div class="nav-item" onclick="nav('chatbot')">💬 Doubt Chatbot</div>
+    <div class="nav-item" onclick="nav('flashcards')">🃏 Flashcards</div>
+    <div class="nav-item" onclick="nav('progress')">📊 Progress</div>
+    <div style="flex:1"></div>
+    <div class="nav-item" onclick="doLogout()" style="color:var(--peach-dk)">🚪 Sign Out</div>
+  </nav>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="p-dashboard">
+      <h1>Good morning, <span id="uName">Alex</span> ✨</h1>
+      <p class="subtitle">Ready to learn something amazing today?</p>
+      <div class="card-grid">
+        <div class="stat-card" style="background:var(--lav)"><div class="stat-label">Study Streak</div><div class="stat-val" style="color:var(--lav-dk)" id="d-streak">5 🔥</div></div>
+        <div class="stat-card" style="background:var(--mint)"><div class="stat-label">Quizzes Taken</div><div class="stat-val" style="color:var(--mint-dk)" id="d-quizzes">0 ✅</div></div>
+        <div class="stat-card" style="background:var(--peach)"><div class="stat-label">Avg Score</div><div class="stat-val" style="color:var(--peach-dk)" id="d-avg">—</div></div>
+        <div class="stat-card" style="background:var(--sky)"><div class="stat-label">Summaries</div><div class="stat-val" style="color:var(--sky-dk)" id="d-summs">0 📄</div></div>
+      </div>
+      <h2>Jump into a feature</h2>
+      <div onclick="nav('planner')" class="chip"><div class="chip-icon" style="background:var(--lav)">📅</div><div><div class="chip-title">Build a Study Plan</div><div class="chip-desc">AI creates a personalized day-by-day exam schedule</div></div></div>
+      <div onclick="nav('summarizer')" class="chip"><div class="chip-icon" style="background:var(--mint)">📄</div><div><div class="chip-title">Summarize Notes</div><div class="chip-desc">Paste notes — get crisp exam-ready bullet points</div></div></div>
+      <div onclick="nav('quiz')" class="chip"><div class="chip-icon" style="background:var(--sky)">🧠</div><div><div class="chip-title">Take a Quiz</div><div class="chip-desc">AI generates MCQs from your notes with explanations</div></div></div>
+      <div onclick="nav('chatbot')" class="chip"><div class="chip-icon" style="background:var(--peach)">💬</div><div><div class="chip-title">Ask a Doubt</div><div class="chip-desc">Chat with your AI tutor — get clear answers instantly</div></div></div>
+      <div onclick="nav('flashcards')" class="chip"><div class="chip-icon" style="background:var(--blush)">🃏</div><div><div class="chip-title">Flashcard Generator</div><div class="chip-desc">AI-made flip cards to help you memorize key concepts</div></div></div>
+    </div>
+
+    <!-- STUDY PLANNER -->
+    <div class="page" id="p-planner">
+      <h1>📅 Study Planner</h1>
+      <p class="subtitle">Fill in your exam details — AI builds a complete day-by-day plan.</p>
+      <div class="card">
+        <label>Subject / Topic</label>
+        <input id="pl-sub" value="Computer Networks" placeholder="e.g. Organic Chemistry, Data Structures…"/>
+        <label>Exam Date</label>
+        <input id="pl-date" type="date"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><label>Hours per day</label><input id="pl-hrs" type="number" value="3" min="1" max="12"/></div>
+          <div><label>Your level</label>
+            <select id="pl-level"><option value="beginner">Beginner</option><option value="intermediate" selected>Intermediate</option><option value="advanced">Advanced</option></select>
+          </div>
+        </div>
+        <button class="btn btn-lav" id="planBtn" style="margin-top:16px" onclick="genPlan()">✨ Generate My Plan</button>
+      </div>
+      <div id="planOut" style="display:none">
+        <h2>Your Personalized Plan</h2>
+        <div id="planDays"></div>
+      </div>
+    </div>
+
+    <!-- SUMMARIZER -->
+    <div class="page" id="p-summarizer">
+      <h1>📄 Notes Summarizer</h1>
+      <p class="subtitle">Paste your notes — get a clean, exam-ready summary in seconds.</p>
+      <div class="card">
+        <label>Your Notes</label>
+        <textarea id="sum-txt" style="min-height:180px" placeholder="Paste lecture notes, textbook content, or any study material…"></textarea>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-lav" id="sumBtn" onclick="doSummarize()">✨ Summarize</button>
+          <button class="btn btn-outline" onclick="document.getElementById('sum-txt').value=SAMPLE">Load Sample</button>
+        </div>
+      </div>
+      <div id="sumOut" style="display:none">
+        <div class="card">
+          <h2>📌 Your Summary</h2>
+          <div id="sumResult" class="md-render" style="font-size:14px;line-height:1.8"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div class="page" id="p-quiz">
+      <h1>🧠 Quiz Generator</h1>
+      <p class="subtitle">Let AI quiz you on your own notes. Attempt and see your score.</p>
+      <div class="card" id="quizSetup">
+        <label>Notes to quiz from</label>
+        <textarea id="quiz-txt" style="min-height:120px" placeholder="Paste your study notes…"></textarea>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+          <div><label>Number of questions</label><input id="quiz-n" type="number" value="5" min="3" max="10"/></div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-sky" id="quizGenBtn" onclick="genQuiz()">🧠 Generate Quiz</button>
+          <button class="btn btn-outline" onclick="document.getElementById('quiz-txt').value=SAMPLE">Use Sample</button>
+        </div>
+      </div>
+      <div id="quizPlay" style="display:none;margin-top:16px">
+        <div id="quizQs"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+          <button class="btn btn-mint" id="submitBtn" onclick="submitQuiz()">Submit Quiz ✓</button>
+          <button class="btn btn-outline" onclick="resetQuiz()">Try Again</button>
+        </div>
+        <div id="quizScore" style="display:none"></div>
+        <div id="quizHint" style="display:none;margin-top:10px;padding:14px;background:var(--yellow);border-radius:var(--radius);font-size:14px;color:var(--yellow-dk)"></div>
+      </div>
+    </div>
+
+    <!-- CHATBOT -->
+    <div class="page" id="p-chatbot">
+      <h1>💬 Doubt Chatbot</h1>
+      <p class="subtitle">Ask anything — your personal AI tutor answers clearly with examples.</p>
+      <div class="card" style="display:flex;flex-direction:column">
+        <div class="chat-msgs" id="chatMsgs">
+          <div class="msg msg-ai">👋 Hi! I'm Velora's AI tutor. Ask me any concept, doubt, or problem — I'll explain it clearly with examples!</div>
+        </div>
+        <div class="chat-row">
+          <input id="chatIn" placeholder="Type your question…" onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()"/>
+          <button class="btn btn-lav" onclick="sendChat()">Send ↗</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLASHCARDS -->
+    <div class="page" id="p-flashcards">
+      <h1>🃏 Flashcard Generator</h1>
+      <p class="subtitle">AI creates flip cards from your notes. Click a card to reveal the answer.</p>
+      <div class="card" id="fcSetup">
+        <label>Paste notes to generate flashcards from</label>
+        <textarea id="fc-txt" style="min-height:100px" placeholder="Paste your study notes…"></textarea>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-lav" id="fcBtn" onclick="genFC()">✨ Generate Flashcards</button>
+          <button class="btn btn-outline" onclick="document.getElementById('fc-txt').value=SAMPLE">Use Sample</button>
+        </div>
+      </div>
+      <div id="fcOut" style="display:none;margin-top:16px">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px">👆 Click any card to flip it</p>
+        <div class="fc-grid" id="fcCards"></div>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="page" id="p-progress">
+      <h1>📊 Progress Tracker</h1>
+      <p class="subtitle">Your learning journey at a glance.</p>
+      <div class="card-grid">
+        <div class="stat-card" style="background:var(--lav)"><div class="stat-label">Quizzes Taken</div><div class="stat-val" style="color:var(--lav-dk)" id="pr-quizzes">0</div></div>
+        <div class="stat-card" style="background:var(--mint)"><div class="stat-label">Avg Score</div><div class="stat-val" style="color:var(--mint-dk)" id="pr-avg">—</div></div>
+        <div class="stat-card" style="background:var(--yellow)"><div class="stat-label">Best Score</div><div class="stat-val" style="color:var(--yellow-dk)" id="pr-best">—</div></div>
+        <div class="stat-card" style="background:var(--peach)"><div class="stat-label">Summaries</div><div class="stat-val" style="color:var(--peach-dk)" id="pr-summs">0</div></div>
+      </div>
+      <div class="card">
+        <h2>Quiz History</h2>
+        <div id="histList" style="font-size:14px"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ── Config ───────────────────────────────────────────────────────────────────
+const API = "http://localhost:8000"; // change to your deployed URL in production
+
+const SAMPLE = `The OSI model has 7 layers used to understand network protocols:
+1. Physical Layer - raw bit transmission over cables and fiber.
+2. Data Link Layer - node-to-node transfer using MAC addresses. Uses CRC for error detection.
+3. Network Layer - logical addressing (IP) and routing. Protocols: IP, ICMP, ARP.
+4. Transport Layer - end-to-end communication. TCP (reliable, connection-oriented) and UDP (fast, connectionless).
+5. Session Layer - manages sessions between applications.
+6. Presentation Layer - data formatting, encryption, compression.
+7. Application Layer - user interfaces. HTTP, FTP, SMTP, DNS.
+
+TCP vs UDP: TCP guarantees delivery via ACKs and retransmission. UDP is faster but unreliable — used for video streaming and gaming.
+TCP Three-Way Handshake: SYN → SYN-ACK → ACK establishes a connection before data transfer.`;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let users = JSON.parse(localStorage.getItem("v_users")||"[]");
+let stats = JSON.parse(localStorage.getItem("v_stats")||'{"quizzes":0,"summs":0,"totalScore":0,"history":[]}');
+let chatHist = [];
+let quizData = [], userAns = {};
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function authTab(t){
+  document.getElementById("loginForm").style.display = t==="login"?"block":"none";
+  document.getElementById("registerForm").style.display = t==="register"?"block":"none";
+  document.querySelectorAll(".tab-btn").forEach((b,i)=>b.classList.toggle("active",(t==="login"&&i===0)||(t==="register"&&i===1)));
+}
+function doLogin(){
+  const e=val("lEmail"),p=val("lPass");
+  if(!e||!p){setErr("Please fill all fields");return}
+  const u=users.find(x=>x.email===e&&x.password===p)||(e==="demo@velora.ai"&&p==="demo123"?{name:"Alex",email:e}:null);
+  if(u){launch(u.name||"Alex")}else{setErr("Wrong credentials. Try demo@velora.ai / demo123")}
+}
+function doRegister(){
+  const n=val("rName"),e=val("rEmail"),p=val("rPass");
+  if(!n||!e||!p){setErr("Fill all fields");return}
+  if(users.find(x=>x.email===e)){setErr("Email already exists");return}
+  users.push({name:n,email:e,password:p});
+  localStorage.setItem("v_users",JSON.stringify(users));
+  launch(n);
+}
+function setErr(m){document.getElementById("authErr").textContent=m}
+function launch(name){
+  document.getElementById("loginPage").style.display="none";
+  document.getElementById("appWrap").style.display="flex";
+  document.getElementById("uName").textContent=name;
+  const d=new Date();d.setDate(d.getDate()+14);
+  document.getElementById("pl-date").value=d.toISOString().split("T")[0];
+  refreshStats();
+}
+function doLogout(){
+  document.getElementById("loginPage").style.display="flex";
+  document.getElementById("appWrap").style.display="none";
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function nav(page){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
+  document.getElementById("p-"+page).classList.add("active");
+  const pages=["dashboard","planner","summarizer","quiz","chatbot","flashcards","progress"];
+  const items=document.querySelectorAll(".nav-item");
+  const i=pages.indexOf(page);
+  if(i>=0)items[i].classList.add("active");
+  if(page==="progress")renderProgress();
+}
+
+// ── API calls ────────────────────────────────────────────────────────────────
+async function api(path,body){
+  const r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok)throw new Error("Server error "+r.status);
+  return r.json();
+}
+
+// ── Study Planner ─────────────────────────────────────────────────────────────
+async function genPlan(){
+  const sub=val("pl-sub"),date=val("pl-date"),hrs=parseInt(val("pl-hrs")),level=val("pl-level");
+  if(!sub){toast("Enter a subject","error");return}
+  const btn=document.getElementById("planBtn");
+  setBtn(btn,"⏳ Building your plan…",true);
+  try{
+    const d=await api("/api/study-plan",{subject:sub,exam_date:date,hours_per_day:hrs,level});
+    if(!d.ok||!d.plan?.length)throw new Error(d.error||"Empty response");
+    const cont=document.getElementById("planDays");cont.innerHTML="";
+    d.plan.forEach(day=>{
+      const div=document.createElement("div");div.className="plan-day";
+      div.innerHTML=`<div class="plan-title">Day ${day.day}: ${day.title}</div>
+        <div class="plan-topics">${(day.topics||[]).map(t=>`• ${t}`).join("<br/>")}</div>
+        ${day.tip?`<div class="plan-tip">💡 ${day.tip}</div>`:""}`;
+      cont.appendChild(div);
+    });
+    document.getElementById("planOut").style.display="block";
+    toast("Plan ready! 🎉");
+  }catch(e){toast("AI error: "+e.message,"error")}
+  finally{setBtn(btn,"✨ Generate My Plan",false)}
+}
+
+// ── Summarizer ────────────────────────────────────────────────────────────────
+async function doSummarize(){
+  const txt=val("sum-txt");
+  if(!txt.trim()){toast("Paste some notes first","error");return}
+  const btn=document.getElementById("sumBtn");
+  setBtn(btn,"⏳ Summarizing…",true);
+  try{
+    const d=await api("/api/summarize",{text:txt});
+    if(!d.ok)throw new Error(d.error||"Failed");
+    document.getElementById("sumResult").innerHTML=mdRender(d.summary);
+    document.getElementById("sumOut").style.display="block";
+    stats.summs=(stats.summs||0)+1;saveStats();refreshStats();
+    toast("Summary ready! 📌");
+  }catch(e){toast("Error: "+e.message,"error")}
+  finally{setBtn(btn,"✨ Summarize",false)}
+}
+
+// ── Quiz ──────────────────────────────────────────────────────────────────────
+async function genQuiz(){
+  const txt=val("quiz-txt"),n=parseInt(val("quiz-n")||5);
+  if(!txt.trim()){toast("Paste notes first","error");return}
+  const btn=document.getElementById("quizGenBtn");
+  setBtn(btn,"⏳ Generating quiz…",true);
+  try{
+    const d=await api("/api/generate-quiz",{text:txt,count:n});
+    if(!d.ok||!d.questions?.length)throw new Error(d.error||"No questions returned");
+    quizData=d.questions;userAns={};
+    renderQuizQuestions();
+    document.getElementById("quizSetup").style.display="none";
+    document.getElementById("quizPlay").style.display="block";
+    document.getElementById("quizScore").style.display="none";
+    document.getElementById("quizHint").style.display="none";
+    document.getElementById("submitBtn").style.display="inline-flex";
+    toast("Quiz ready! Good luck 🍀");
+  }catch(e){toast("Error: "+e.message,"error")}
+  finally{setBtn(btn,"🧠 Generate Quiz",false)}
+}
+
+function renderQuizQuestions(){
+  const cont=document.getElementById("quizQs");cont.innerHTML="";
+  quizData.forEach((q,i)=>{
+    const div=document.createElement("div");div.className="quiz-q";
+    div.innerHTML=`<div class="q-num">Question ${i+1} of ${quizData.length}</div>
+      <div class="q-text">${q.q}</div>`;
+    (q.options||[]).forEach(opt=>{
+      const btn=document.createElement("div");btn.className="option";btn.textContent=opt;
+      btn.onclick=()=>{
+        div.querySelectorAll(".option").forEach(o=>o.classList.remove("selected"));
+        btn.classList.add("selected");userAns[i]=opt[0];
+      };
+      div.appendChild(btn);
+    });
+    const expDiv=document.createElement("div");expDiv.className="q-exp";expDiv.style.display="none";
+    expDiv.textContent="💡 "+q.explanation;div.appendChild(expDiv);
+    cont.appendChild(div);
+  });
+}
+
+function submitQuiz(){
+  let score=0;
+  quizData.forEach((q,i)=>{
+    const correct=q.answer[0];const chosen=userAns[i];
+    const div=document.getElementById("quizQs").children[i];
+    div.querySelectorAll(".option").forEach(opt=>{
+      if(opt.textContent[0]===correct)opt.classList.add("correct");
+      else if(opt.textContent[0]===chosen&&chosen!==correct)opt.classList.add("wrong");
+      opt.style.cursor="default";opt.onclick=null;
+    });
+    div.querySelector(".q-exp").style.display="block";
+    if(chosen===correct)score++;
+  });
+  const pct=Math.round(score/quizData.length*100);
+  const banner=document.getElementById("quizScore");
+  banner.style.display="block";
+  banner.className="score-banner";
+  if(pct>=80){banner.style.background="var(--mint)";banner.style.color="var(--mint-dk)"}
+  else if(pct>=60){banner.style.background="var(--yellow)";banner.style.color="var(--yellow-dk)"}
+  else{banner.style.background="var(--peach)";banner.style.color="var(--peach-dk)"}
+  banner.textContent=`You scored ${score}/${quizData.length} — ${pct}% ${pct>=80?"🌟 Excellent!":pct>=60?"👍 Good job!":"📚 Keep going!"}`;
+  document.getElementById("submitBtn").style.display="none";
+  // get AI difficulty hint
+  fetch(API+"/api/difficulty-hint",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:String(pct)})})
+    .then(r=>r.json()).then(d=>{
+      const h=document.getElementById("quizHint");
+      h.style.display="block";h.textContent="🤖 "+d.hint;
+    });
+  stats.quizzes=(stats.quizzes||0)+1;
+  stats.totalScore=(stats.totalScore||0)+pct;
+  stats.history=[{date:new Date().toLocaleDateString(),score:pct,correct:score,total:quizData.length},...(stats.history||[])].slice(0,15);
+  saveStats();refreshStats();
+}
+
+function resetQuiz(){
+  document.getElementById("quizSetup").style.display="block";
+  document.getElementById("quizPlay").style.display="none";
+}
+
+// ── Chatbot ───────────────────────────────────────────────────────────────────
+async function sendChat(){
+  const inp=document.getElementById("chatIn");
+  const q=inp.value.trim();if(!q)return;
+  addMsg(q,"user");inp.value="";chatHist.push({role:"user",content:q});
+  const load=addLoader();
+  try{
+    const d=await api("/api/chat",{history:chatHist,question:q});
+    load.remove();
+    const reply=d.reply||"Sorry, I couldn't get a response.";
+    addMsg(reply,"ai");chatHist.push({role:"assistant",content:reply});
+  }catch(e){load.remove();addMsg("Error: "+e.message,"ai")}
+}
+
+function addMsg(text,role){
+  const div=document.createElement("div");div.className="msg msg-"+role;div.textContent=text;
+  document.getElementById("chatMsgs").appendChild(div);
+  document.getElementById("chatMsgs").scrollTop=9999;
+  return div;
+}
+function addLoader(){
+  const div=document.createElement("div");div.className="msg msg-ai";
+  div.innerHTML='<div class="dots"><span></span><span></span><span></span></div>';
+  document.getElementById("chatMsgs").appendChild(div);
+  document.getElementById("chatMsgs").scrollTop=9999;
+  return div;
+}
+
+// ── Flashcards ────────────────────────────────────────────────────────────────
+async function genFC(){
+  const txt=val("fc-txt");
+  if(!txt.trim()){toast("Paste notes first","error");return}
+  const btn=document.getElementById("fcBtn");
+  setBtn(btn,"⏳ Creating cards…",true);
+  try{
+    const d=await api("/api/flashcards",{text:txt});
+    if(!d.ok||!d.flashcards?.length)throw new Error(d.error||"No cards returned");
+    const cont=document.getElementById("fcCards");cont.innerHTML="";
+    d.flashcards.forEach(c=>{
+      const div=document.createElement("div");div.className="flashcard";
+      div.innerHTML=`<div class="fc-inner"><div class="fc-front">${c.front}</div><div class="fc-back">${c.back}</div></div>`;
+      div.onclick=()=>div.classList.toggle("flipped");
+      cont.appendChild(div);
+    });
+    document.getElementById("fcOut").style.display="block";
+    toast("Flashcards ready! 🃏");
+  }catch(e){toast("Error: "+e.message,"error")}
+  finally{setBtn(btn,"✨ Generate Flashcards",false)}
+}
+
+// ── Progress ──────────────────────────────────────────────────────────────────
+function renderProgress(){
+  const s=stats;
+  document.getElementById("pr-quizzes").textContent=s.quizzes||0;
+  document.getElementById("pr-summs").textContent=s.summs||0;
+  if(s.quizzes>0){
+    document.getElementById("pr-avg").textContent=Math.round(s.totalScore/s.quizzes)+"%";
+    document.getElementById("pr-best").textContent=Math.max(...s.history.map(h=>h.score))+"%";
+  }
+  const cont=document.getElementById("histList");
+  if(!s.history?.length){cont.innerHTML='<span style="color:var(--muted)">No quizzes taken yet.</span>';return}
+  cont.innerHTML=s.history.map(h=>{
+    const bg=h.score>=80?"var(--mint)":h.score>=60?"var(--yellow)":"var(--peach)";
+    const tc=h.score>=80?"var(--mint-dk)":h.score>=60?"var(--yellow-dk)":"var(--peach-dk)";
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted);font-size:13px">${h.date}</span>
+      <span>${h.correct}/${h.total} correct</span>
+      <span style="background:${bg};color:${tc};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">${h.score}%</span>
+    </div>`;
+  }).join("");
+}
+
+function refreshStats(){
+  document.getElementById("d-quizzes").textContent=(stats.quizzes||0)+" ✅";
+  document.getElementById("d-summs").textContent=(stats.summs||0)+" 📄";
+  if(stats.quizzes>0)document.getElementById("d-avg").textContent=Math.round(stats.totalScore/stats.quizzes)+"%";
+}
+
+function saveStats(){localStorage.setItem("v_stats",JSON.stringify(stats))}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function val(id){return document.getElementById(id)?.value||""}
+function setBtn(btn,txt,dis){btn.textContent=txt;btn.disabled=dis}
+function toast(msg,type="success"){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.className="toast toast-"+(type==="error"?"error":"success")+" show";
+  setTimeout(()=>t.classList.remove("show"),3000);
+}
+function mdRender(text){
+  return text
+    .replace(/## (.+)/g,'<h2>$1</h2>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^- (.+)/gm,'<li>$1</li>')
+    .replace(/^• (.+)/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/\n\n/g,'<br/>')
+    .replace(/\n/g,'<br/>');
+}
+</script>
+</body>
+</html>
