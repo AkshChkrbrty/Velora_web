@@ -5,11 +5,11 @@ import re
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-# Load variables from a local .env file (if present) into the environment.
-# On hosts like Render you set real env vars in the dashboard instead — this
-# line is harmless there because no .env file exists.
+# Load variables from a local .env file (if present). On Render you set the
+# same variables in the dashboard instead; this line is harmless there.
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -19,16 +19,17 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # OpenRouter configuration
 # ─────────────────────────────────────────────────────────────────────────────
-# Your key is read from OPENROUTER_API_KEY — either from the .env file next to
-# this script, or from a real environment variable. Never hard-code real keys.
+# API key comes from the environment variable OPENROUTER_API_KEY (never hard-coded).
 # Get a key at: https://openrouter.ai/keys
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# You do NOT have to pick a model. If OPENROUTER_MODEL is unset or blank,
-# this defaults to "openrouter/auto" — OpenRouter analyses each prompt and
-# picks the best model automatically (no extra fee; you pay the chosen
-# model's normal rate). Set "openrouter/free" to only use free models, or
-# any specific slug from https://openrouter.ai/models to pin one.
+# Model is OPTIONAL. If OPENROUTER_MODEL is unset/blank, we use "openrouter/auto",
+# which lets OpenRouter automatically pick a valid, available model for every
+# request. This avoids the "no endpoints found for <model>" error that happens
+# when a hard-coded model name gets retired.
+#   • openrouter/auto  → best model auto-picked (no markup; pays chosen model's rate)
+#   • openrouter/free  → only free models (zero cost; may be slower / rate-limited)
+#   • any slug from https://openrouter.ai/models → pin one exact model
 MODEL = os.getenv("OPENROUTER_MODEL") or "openrouter/auto"
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -43,7 +44,7 @@ app.add_middleware(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Request models  (unchanged — the frontend depends on these field names)
+# Request models  (field names must match what the frontend sends)
 # ─────────────────────────────────────────────────────────────────────────────
 class PlanRequest(BaseModel):
     subject: str
@@ -70,30 +71,30 @@ class ChatRequest(BaseModel):
 # Core AI call (OpenRouter, OpenAI-compatible chat completions)
 # ─────────────────────────────────────────────────────────────────────────────
 def chat_completion(messages):
-    """Send a list of {role, content} messages to OpenRouter and return the text."""
+    """Send a list of {role, content} messages to OpenRouter; return the text."""
     if not OPENROUTER_API_KEY:
         raise HTTPException(
             500,
             "OPENROUTER_API_KEY is not set. Add your OpenRouter key as an "
-            "environment variable and restart the server.",
+            "environment variable (or in a .env file) and restart the server.",
         )
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
-        # Optional attribution headers (safe to leave as-is):
         "HTTP-Referer": "http://localhost:8000",
         "X-Title": "Velora EduAI",
     }
     payload = {"model": MODEL, "messages": messages}
 
     try:
-        resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
+        resp = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=90)
     except requests.RequestException as e:
         raise HTTPException(502, f"Could not reach OpenRouter: {e}")
 
     if resp.status_code != 200:
-        # Surface OpenRouter's own error message so problems are obvious.
+        # Surface OpenRouter's own error so problems are obvious (bad model,
+        # no credits, invalid key, etc.).
         raise HTTPException(resp.status_code, f"OpenRouter error: {resp.text[:300]}")
 
     data = resp.json()
@@ -104,19 +105,17 @@ def chat_completion(messages):
 
 
 def gen(prompt):
-    """Convenience wrapper for a single-prompt (one user message) generation."""
+    """Convenience wrapper: single user message -> text."""
     return chat_completion([{"role": "user", "content": prompt}])
 
 
 def extract_json(raw):
     """Extract the first complete JSON array/object from an LLM reply.
 
-    Robust against ```json fences and any leading/trailing prose the model
-    may add around the JSON.
+    Robust against ```json fences and any leading/trailing prose around the JSON.
     """
     text = re.sub(r"```(?:json)?", "", raw).strip().strip("`")
 
-    # Find the earliest opening bracket of either type.
     start = -1
     opener = None
     for ch in ("[", "{"):
@@ -128,9 +127,6 @@ def extract_json(raw):
         raise ValueError("No JSON found: " + text[:100])
 
     closer = "]" if opener == "[" else "}"
-
-    # Walk forward tracking bracket depth (ignoring brackets inside strings)
-    # to find the matching close bracket, so trailing text is ignored.
     depth = 0
     in_str = False
     escape = False
@@ -153,13 +149,40 @@ def extract_json(raw):
             if depth == 0:
                 return json.loads(text[start:i + 1])
 
-    # Fallback: try parsing from the first bracket to the end.
     return json.loads(text[start:])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Endpoints  (paths + response shapes identical to the original)
+# Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
+@app.get("/", response_class=HTMLResponse)
+def root():
+    """Serve the Velora web page itself, so the whole app runs on one Render URL.
+
+    Looks for index.html in a few likely spots so it works regardless of whether
+    the frontend sits next to main.py or in a separate frontend/ folder.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(here, "index.html"),
+        os.path.join(here, "frontend", "index.html"),
+        os.path.join(here, "..", "frontend", "index.html"),
+        os.path.join(here, "static", "index.html"),
+    ]
+    for path in candidates:
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return HTMLResponse(f.read())
+    # Frontend file not found — still return something useful instead of 404.
+    return HTMLResponse(
+        "<h2>Velora backend is running.</h2>"
+        "<p>index.html was not found next to main.py. Place index.html in the "
+        "same folder as main.py (or in a frontend/ folder) so the site can load.</p>"
+        "<p>API docs: <a href='/docs'>/docs</a></p>",
+        status_code=200,
+    )
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "model": MODEL}
@@ -232,13 +255,10 @@ def chat(req: ChatRequest):
             "Max 250 words."
         ),
     }]
-    # Map the conversation history into OpenRouter message roles.
     for m in req.history[-8:]:
         role = "user" if m.get("role") == "user" else "assistant"
         messages.append({"role": role, "content": m.get("content", "")})
 
-    # The frontend already appends the question to history before calling,
-    # so only add it again if it isn't already the last user message.
     last = messages[-1] if len(messages) > 1 else None
     if not (last and last["role"] == "user" and last["content"] == req.question):
         messages.append({"role": "user", "content": req.question})
