@@ -24,9 +24,12 @@ except ImportError:
 # Get a key at: https://openrouter.ai/keys
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# Any model slug from https://openrouter.ai/models works here.
-# Override without touching code:  export OPENROUTER_MODEL="openai/gpt-4o-mini"
-MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+# You do NOT have to pick a model. If OPENROUTER_MODEL is unset or blank,
+# this defaults to "openrouter/auto" — OpenRouter analyses each prompt and
+# picks the best model automatically (no extra fee; you pay the chosen
+# model's normal rate). Set "openrouter/free" to only use free models, or
+# any specific slug from https://openrouter.ai/models to pin one.
+MODEL = os.getenv("OPENROUTER_MODEL") or "openrouter/auto"
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
