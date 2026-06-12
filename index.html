@@ -113,6 +113,23 @@ label:first-child{margin-top:0}
 .md-render ul{padding-left:20px;margin:6px 0}
 .md-render li{margin-bottom:5px;line-height:1.65}
 .md-render strong{font-weight:700;color:var(--text)}
+/* ===== Mobile / smartphone responsive layout ===== */
+@media (max-width:768px){
+  .app{flex-direction:column}
+  .sidebar{
+    position:sticky;top:0;left:0;width:100%;height:auto;
+    flex-direction:row;align-items:center;gap:2px;
+    padding:8px 10px;border-right:none;border-bottom:1.5px solid var(--border);
+    overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;z-index:50
+  }
+  .sidebar>div:not([class]){display:none}      /* hide the flex spacer */
+  .logo{padding:6px 10px 6px 4px;font-size:18px;flex-shrink:0}
+  .nav-item{padding:8px 12px;margin:0 2px;font-size:13px;white-space:nowrap;flex-shrink:0}
+  .main{margin-left:0;padding:16px}
+  .login-card{width:100%;max-width:380px}
+  .login-wrap{padding:16px}
+  .chat-msgs{max-height:60vh}
+}
 </style>
 </head>
 <body>
